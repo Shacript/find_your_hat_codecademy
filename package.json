@@ -1,0 +1,23 @@
+{
+  "name": "hat_codecademy",
+  "version": "1.0.0",
+  "description": "\u0016Challenge Project Find Your Hat From Codecademy",
+  "main": "game.js",
+  "dependencies": {
+    "prompt-sync": "^4.2.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shacript/find_your_hat_codecademy.git"
+  },
+  "author": "Shacript",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Shacript/find_your_hat_codecademy/issues"
+  },
+  "homepage": "https://github.com/Shacript/find_your_hat_codecademy#readme"
+}
