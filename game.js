@@ -4,26 +4,24 @@ const hat = "^";
 const hole = "O";
 const fieldCharacter = "░";
 const pathCharacter = "*";
-const deadBody = "X";
-const victoryBody = "Y";
 
 class Field {
-  constructor(mapArray) {
-    this.myField = mapArray || Field.generateField();
-    if (mapArray && mapArray.length < 3 || mapArray && mapArray[0].length < 3)
-      this.myField = Field.generateField();
-
-    this.playerPosition = [0, 0];
-    this.randomPlayerPostion();
+  constructor(width, height, percentageOfHole) {
+    this.width = width;
+    this.height = height;
+    this.percentageOfHole = percentageOfHole;
+    this.boardMap = Field.generateField(width, height, percentageOfHole);
+    this.playerPosition = [0, 0]; // [x,y]
+    this.randomPlayerPosition();
 
     this.hatPosition = [0, 0];
-    this.randomHatPostion();
+    this.randomHatPosition();
 
     this.wasHere = [];
     this.correctPath = [];
     this.isThereAnyExit();
 
-    this.gameStatus = false;
+    this.gameStart = false;
     this.hardMode = false;
   }
 
@@ -31,174 +29,203 @@ class Field {
     this.wasHere = [];
     this.correctPath = [];
 
-    for (let row = 0; row < this.myField.length; row++) {
+    for (let row = 0; row < this.boardMap.length; row++) {
       this.wasHere[row] = [];
       this.correctPath[row] = [];
-      for (let col = 0; col < this.myField[row].length; col++) {
-        this.wasHere[row][col] = false;
-        this.correctPath[row][col] = false;
+      for (let column = 0; column < this.boardMap[row].length; column++) {
+        this.wasHere[row][column] = false;
+        this.correctPath[row][column] = false;
       }
     }
 
-    while (!await this.recursiveSolve(this.playerPosition[0], this.playerPosition[1])) {
-        this.myField = Field.generateField();
-        this.isThereAnyExit()
+    while (
+      !(await this.recursiveSolve(
+        this.playerPosition[0],
+        this.playerPosition[1]
+      ))
+    ) {
+      this.boardMap = Field.generateField(
+        this.width,
+        this.height,
+        this.percentageOfHole
+      );
+      await this.isThereAnyExit();
     }
   }
 
-  // async for Maximum call stack size exceeded problem .
-  //https://en.wikipedia.org/wiki/Maze-solving_algorithm
   async recursiveSolve(x, y) {
-    if(x == this.hatPosition[0] && y == this.hatPosition[1]) return true; // reach to the hat
-    // there is wall or you were there.
-    if(this.myField[y][x] == hole || this.wasHere && this.wasHere[y] && this.wasHere[y][x]) return false; 
+    if (x == this.hatPosition[0] && y == this.hatPosition[1]) return true;
+    if (this.boardMap[y][x] == hole || this.wasHere[y][x]) return false;
 
     this.wasHere[y][x] = true;
 
-    if(x != 0){ // left edge check
-        if(await this.recursiveSolve(x - 1, y)){
-            this.correctPath[y][x] = true;
-            return true;
-        }
+    if (x != 0) {
+      if (await this.recursiveSolve(x - 1, y)) {
+        this.correctPath[y][x] = true;
+        return true;
+      }
     }
-    if(x != (this.myField[y].length - 1)){ // right edge check
-        if(await this.recursiveSolve(x + 1, y)){
-            this.correctPath[y][x] = true;
-            return true;
-        }
+    if (x != this.boardMap[y].length - 1) {
+      if (await this.recursiveSolve(x + 1, y)) {
+        this.correctPath[y][x] = true;
+        return true;
+      }
     }
-    if(y != 0){ // top edge check
-        if(await this.recursiveSolve(x, y - 1)){
-            this.correctPath[y][x] = true;
-            return true;
-        }
+    if (y != 0) {
+      if (await this.recursiveSolve(x, y - 1)) {
+        this.correctPath[y][x] = true;
+        return true;
+      }
     }
-    if(y != (this.myField.length - 1)){ // bottom edge checkk
-        if(await this.recursiveSolve(x, y + 1)){
-            this.correctPath[y][x] = true;
-            return true;
-        }
+    if (y != this.boardMap.length - 1) {
+      if (await this.recursiveSolve(x, y + 1)) {
+        this.correctPath[y][x] = true;
+        return true;
+      }
     }
 
     return false;
-
   }
 
-  randomHatPostion() {
-    const height = this.myField.length;
-    const width = this.myField[0].length;
-    let x = Math.floor(Math.random() * width);
-    let y = Math.floor(Math.random() * height);
-    this.hatPosition = [x, y];
-  }
-
-  randomPlayerPostion() {
-    const height = this.myField.length;
-    const width = this.myField[0].length;
-    let x = Math.floor(Math.random() * width);
-    let y = Math.floor(Math.random() * height);
-    while (this.myField[y][x] != fieldCharacter) {
-      x = Math.floor(Math.random() * width);
-      y = Math.floor(Math.random() * height);
-    }
+  randomPlayerPosition() {
+    const x = Math.floor(Math.random() * this.boardMap[0].length);
+    const y = Math.floor(Math.random() * this.boardMap.length);
     this.playerPosition = [x, y];
   }
 
-  checkCondition() {
-    if (!this.gameStatus) return;
-    switch (this.myField[this.playerPosition[1]][this.playerPosition[0]]) {
-      case hole:
-        this.myField[this.playerPosition[1]][this.playerPosition[0]] = deadBody;
-        this.print();
-        console.log("Sorry, you fell down a hole.");
-        this.gameStatus = false;
-        break;
-      case hat:
-        this.myField[this.playerPosition[1]][this.playerPosition[0]] =
-          victoryBody;
-        this.print();
-        console.log("Congrat !, you found a hat !");
-        this.gameStatus = false;
-        break;
-      case pathCharacter:
-        this.myField[this.playerPosition[1]][this.playerPosition[0]] = deadBody;
-        this.print();
-        console.log("Sorry, that path you have already passed is broken.");
-        this.gameStatus = false;
-        break;
+  randomHatPosition() {
+    let x = Math.floor(Math.random() * this.boardMap[0].length);
+    let y = Math.floor(Math.random() * this.boardMap.length);
+
+    while (x == this.playerPosition[0] && y == this.playerPosition[1]) {
+      x = Math.floor(Math.random() * this.boardMap[0].length);
+      y = Math.floor(Math.random() * this.boardMap.length);
     }
+
+    this.hatPosition = [x, y];
   }
 
-  moveUp() {
-    if (this.isOutOfBound(this.playerPosition[1] - 1, this.playerPosition[0]))
-      return;
-    this.playerPosition[1]--;
-  }
-
-  moveDown() {
-    if (this.isOutOfBound(this.playerPosition[1] + 1, this.playerPosition[0]))
-      return;
-    this.playerPosition[1]++;
-  }
-
-  moveLeft() {
-    if (this.isOutOfBound(this.playerPosition[1], this.playerPosition[0] - 1))
-      return;
-    this.playerPosition[0]--;
-  }
-
-  moveRight() {
-    if (this.isOutOfBound(this.playerPosition[1], this.playerPosition[0] + 1))
-      return;
-    this.playerPosition[0]++;
-  }
-
-  isOutOfBound(y, x) {
-    if (
-      y >= this.myField.length ||
-      y < 0 ||
-      x >= this.myField[y].length ||
-      x < 0
-    ) {
-      this.myField[this.playerPosition[1]][this.playerPosition[0]] = deadBody;
-      this.print();
-      console.log("Out of bounds.");
-      this.gameStatus = false;
-      return true;
+  static generateField(width, height, percentageOfHole) {
+    let fullMap = [];
+    for (let row = 0; row < height; row++) {
+      let columns = [];
+      for (let column = 0; column < width; column++) {
+        columns.push(fieldCharacter);
+      }
+      fullMap.push(columns);
     }
+
+    for (let i = 0; i < width * height; i++) {
+      const randomChange = Math.floor(Math.random() * 100);
+      if (randomChange <= percentageOfHole) {
+        const x = Math.floor(Math.random() * width);
+        const y = Math.floor(Math.random() * height);
+        fullMap[y][x] = hole;
+      }
+    }
+
+    return fullMap;
   }
 
   print() {
     console.clear();
-    const playerGround =
-      this.myField[this.playerPosition[1]][this.playerPosition[0]];
-    this.myField[this.playerPosition[1]][this.playerPosition[0]] =
-      playerGround == deadBody
-        ? deadBody
-        : playerGround == victoryBody
-        ? victoryBody
-        : pathCharacter;
-    this.myField[this.hatPosition[1]][this.hatPosition[0]] = hat
+    this.boardMap[this.playerPosition[1]][this.playerPosition[0]] =
+      pathCharacter;
+    this.boardMap[this.hatPosition[1]][this.hatPosition[0]] = hat;
+    console.log(this.boardMap.map((v) => v.join("")).join("\n"));
+  }
 
-    console.log(this.myField.map((v) => v.join("")).join("\n"));
+  moveUp() {
+    if (this.playerPosition[1] - 1 < 0) {
+      console.log("you are out of bounds");
+      this.gameStart = false;
+      return;
+    }
+    if (
+      this.boardMap[this.playerPosition[1] - 1][this.playerPosition[0]] ==
+      pathCharacter
+    ) {
+      return;
+    }
+    this.playerPosition[1]--;
+  }
+
+  moveDown() {
+    if (this.playerPosition[1] + 1 > this.boardMap.length - 1) {
+      console.log("you are out of bounds");
+      this.gameStart = false;
+      return;
+    }
+    if (
+      this.boardMap[this.playerPosition[1] + 1][this.playerPosition[0]] ==
+      pathCharacter
+    ) {
+      return;
+    }
+    this.playerPosition[1]++;
+  }
+
+  moveLeft() {
+    if (this.playerPosition[0] - 1 < 0) {
+      console.log("you are out of bounds");
+      this.gameStart = false;
+      return;
+    }
+    if (
+      this.boardMap[this.playerPosition[1]][this.playerPosition[0] - 1] ==
+      pathCharacter
+    ) {
+      return;
+    }
+    this.playerPosition[0]--;
+  }
+
+  moveRight() {
+    if (
+      this.playerPosition[0] + 1 >
+      this.boardMap[this.playerPosition[1]].length - 1
+    ) {
+      console.log("you are out of bounds");
+      this.gameStart = false;
+      return;
+    }
+    if (
+      this.boardMap[this.playerPosition[1]][this.playerPosition[0] + 1] ==
+      pathCharacter
+    ) {
+      return;
+    }
+    this.playerPosition[0]++;
+  }
+
+  checkCondition() {
+    switch (this.boardMap[this.playerPosition[1]][this.playerPosition[0]]) {
+      case hat:
+        console.log("congrat you found your hat");
+        this.gameStart = false;
+        break;
+      case hole:
+        console.log("sorry you fell to hole");
+        this.gameStart = false;
+        break;
+    }
   }
 
   selectMenu() {
-    console.log("Find my hat ! \n");
+    console.log("Select Mode\n");
     console.log("1. Easy Mode");
     console.log("2. Hard Mode");
-    const input = prompt("Select : ").toLowerCase();
-    this.hardMode = input == 2;
+    const input = prompt("\nyour action > ");
+    if (input == "2") this.hardMode = true;
   }
 
-  start() {
+  startGame() {
     this.selectMenu();
-    this.gameStatus = true;
-    while (this.gameStatus) {
-      this.print();
-      const input = prompt(
-        "Which way? (w:up, s:down, a:left, d:right) : "
-      ).toLowerCase();
+    this.gameStart = true;
+    while (this.gameStart) {
+      myField.print();
+
+      const input = prompt("w:up, a:left, s: down, d:right : ").toLowerCase();
       switch (input) {
         case "w":
           this.moveUp();
@@ -213,74 +240,28 @@ class Field {
           this.moveRight();
           break;
       }
+
       this.checkCondition();
-      this.hardMode && this.randomHole();
-    }
-  }
 
-  randomHole() {
-    const height = this.myField.length;
-    const width = this.myField[0].length;
-    let x = Math.floor(Math.random() * width);
-    let y = Math.floor(Math.random() * height);
-    while (this.myField[y][x] != fieldCharacter || this.myField[y][x] == hole) {
-      x = Math.floor(Math.random() * width);
-      y = Math.floor(Math.random() * height);
-    }
-    this.myField[y][x] = hole;
-  }
+      if (this.hardMode) {
+        let x = Math.floor(Math.random() * this.boardMap[0].length);
+        let y = Math.floor(Math.random() * this.boardMap.length);
 
-  static generateField(height, width, percentageForHole, randomThrow) {
-    // Validate all arguments and set to default value
-    height = height >= 3 ? height : 10;
-    width = width >= 3 ? width : 10;
-    percentageForHole =
-      percentageForHole < 100 && percentageForHole >= 0
-        ? percentageForHole
-        : percentageForHole < 0
-        ? 0
-        : 30;
-    randomThrow = randomThrow ? randomThrow : false;
-
-    // Generate Full Map
-    let fullMap = [];
-    for (let a = 0; a < height; a++) {
-      let columnMap = [];
-      for (let b = 0; b < width; b++) {
-        columnMap.push(fieldCharacter);
-      }
-      fullMap.push(columnMap);
-    }
-
-    // randomThrow it is like randomly throw hole to everywhere in the map
-    // so it gonna throw (width * height) times and very times it gonna check that random position ,
-    // Should have hole or not desire on percentageForHole
-    // but if turn randomThrow [false] it is gonna check each position should have hole or not desire on percentageForHole;
-    if (randomThrow) {
-      for (let i = 0; i < width * height; i++) {
-        if (Math.floor(Math.random() * 100) <= percentageForHole) {
-          let x = Math.floor(Math.random() * width);
-          let y = Math.floor(Math.random() * height);
-          while (fullMap[y][x] == hole) {
-            x = Math.floor(Math.random() * width);
-            y = Math.floor(Math.random() * height);
-          }
-          fullMap[y][x] = hole;
+        while (
+          this.boardMap[y][x] == hole ||
+          (x == this.playerPosition[0] && y == this.playerPosition[1]) ||
+          (x == this.hatPosition[0] && y == this.hatPosition[1])
+        ) {
+          x = Math.floor(Math.random() * this.boardMap[0].length);
+          y = Math.floor(Math.random() * this.boardMap.length);
         }
-      }
-    } else {
-      for (let row in fullMap) {
-        for (let column in fullMap[row]) {
-          const dropHole = Math.floor(Math.random() * 100) <= percentageForHole;
-          fullMap[row][column] = dropHole ? hole : fieldCharacter;
-        }
+
+        this.boardMap[y][x] = hole;
       }
     }
-
-    return fullMap;
   }
 }
 
-const game = new Field();
+const myField = new Field(10, 10, 50);
 
-game.start();
+myField.startGame();
